@@ -43,8 +43,7 @@
   (load bootstrap-file nil 'nomessage))
 
   ;; Initialize use-package on non-Linux platforms
-(unless (package-installed-p 'use-package)
-  (package-install 'use-package))
+(straight-use-package 'use-package)
 
 (require 'use-package)
 (setq straight-use-package-by-default t)
@@ -205,7 +204,6 @@
   ;; Uncomment the following line to have sorting remembered across sessions!
   ;(prescient-persist-mode 1)
   (ivy-prescient-mode 1))
-
 
 ;;; Counsel
 (use-package counsel
