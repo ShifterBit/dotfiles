@@ -1,0 +1,13 @@
+etc/
+var/
+elpa/
+packages/
+projectile-bookmarks*
+recentf
+.last-package-update-day
+.lsp-session*
+transient
+auto-save-list/
+straight/
+./.cache
+./.lsp-session*
