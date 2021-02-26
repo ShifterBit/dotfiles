@@ -5,7 +5,9 @@
 
 ;; Boost startup apparently
 ;; The default is 800 kilobytes.  Measured in bytes.
-(setq gc-cons-threshold (* 50 1000 1000))
+(setq gc-cons-threshold (* 50 1000 1000 100000 1000000))
+(setq read-process-output-max (* 1024 1024)) ;; 1mb
+
 
 ;; Profile emacs startup
 (add-hook 'emacs-startup-hook
@@ -16,17 +18,6 @@
                               (time-subtract after-init-time before-init-time)))
                      gcs-done)))
 ;;; Commentary:
-;; (require 'package)
-
-;; ;;; Code:
-;; (setq package-archives '(("melpa" . "https://melpa.org/packages/")
-;;                          ("melpa-stable" . "https://stable.melpa.org/packages/")
-;;                          ("org" . "https://orgmode.org/elpa/")
-;;                          ("elpa" . "https://elpa.gnu.org/packages/")))
-
-;; (package-initialize)
-;; (unless package-archive-contents
-;;   (package-refresh-contents))
 
 ;;; Set up Straight.el
 (defvar bootstrap-version)
@@ -101,8 +92,9 @@
  (shell-pop-restore-window-configuration t)
  (shell-pop-cleanup-buffer-at-process-exit t))
 (dw/leader-key-def
-  "o" '(:ignore t :which-key "applications")
-  "ot" 'shell-pop)
+  "o" '(:ignore t :which-key "open..")
+  "ot" 'shell-pop
+  "oe" 'treemacs)
 
 
 ;;; Magit Git Client
@@ -127,10 +119,6 @@
   "gf"  'magit-fetch
   "gF"  'magit-fetch-all
   "gr"  'magit-rebase)
-
-
-;;; Org Mode
-(use-package org)
 
 
 ;;; Evil Mode
@@ -166,11 +154,35 @@
 ;; Change Tabs to Spaces
 (setq-default indent-tabs-mode nil)
 
+;; Matching Brackets
+(use-package paren
+  :config
+  (set-face-attribute 'show-paren-match-expression nil :background "#363e4a")
+  (show-paren-mode 1))
 
 ;; Rainbow Backets
 (use-package rainbow-delimiters
   :hook (prog-mode . rainbow-delimiters-mode))
 
+
+;;; Counsel
+(use-package counsel
+  :bind (("C-M-j" . 'counsel-switch-buffer)
+         ("C-x b" . counsel-ibuffer)
+         ("C-x C-f" . counsel-find-file)
+         :map minibuffer-local-map
+         ("C-r" . 'counsel-minibuffer-history))
+  :custom
+  (counsel-linux-app-format-function #'counsel-linux-app-format-function-name-only)
+  :config
+  (counsel-mode 1))
+
+(dw/leader-key-def
+  "f"   '(:ignore t :which-key "files")
+  "ff"  '(counsel-find-file :which-key "open file")
+  "fr"  '(counsel-recentf :which-key "recent files")
+  "fR"  '(revert-buffer :which-key "revert file")
+  "fj"  '(counsel-file-jump :which-key "jump to file"))
 
 ;;; Ivy Search
 (use-package ivy
@@ -205,24 +217,8 @@
   ;(prescient-persist-mode 1)
   (ivy-prescient-mode 1))
 
-;;; Counsel
-(use-package counsel
-  :bind (("C-M-j" . 'counsel-switch-buffer)
-         ("C-x b" . counsel-ibuffer)
-         ("C-x C-f" . counsel-find-file)
-         :map minibuffer-local-map
-         ("C-r" . 'counsel-minibuffer-history))
-  :custom
-  (counsel-linux-app-format-function #'counsel-linux-app-format-function-name-only)
-  :config
-  (counsel-mode 1))
+(use-package lsp-ivy)
 
-(dw/leader-key-def
-  "f"   '(:ignore t :which-key "files")
-  "ff"  '(counsel-find-file :which-key "open file")
-  "fr"  '(counsel-recentf :which-key "recent files")
-  "fR"  '(revert-buffer :which-key "revert file")
-  "fj"  '(counsel-file-jump :which-key "jump to file"))
 
 
 ;;; Helpful
@@ -363,10 +359,9 @@
 (use-package doom-modeline
   :init (doom-modeline-mode 1))
 
-;;; Debugger
-(use-package dap-mode)
 ;;; Treemacs
 (use-package treemacs)
+
 ;;; Configure LSP
 (defun efs/lsp-mode-setup ()
   (setq lsp-headerline-breadcrumb-segments '(path-up-to-project file symbols))
@@ -375,16 +370,11 @@
 (use-package lsp-mode
   :commands (lsp lsp-deferred)
   :hook
-  (lsp-mode . efs/lsp-mode-setup)
-  (typescript-mode . lsp-deferred)
-  (javascript-mode . lsp-deferred)
-  (rust-mode . lsp)
-  (c-mode . lsp)
-  (haskell-mode . lsp)
-  (c++-mode . lsp)
+  ((typescript-mode javascript-mode web-mode rust-mode c-mode c++-mode haskell-mode)  . lsp)
   :init
   (setq lsp-keymap-prefix "C-c l")  ;; Or 'C-l', 's-l'
   :config
+  (setq lsp-log-io nil)
   (add-hook 'haskell-mode-hook #'lsp)
   (add-hook 'haskell-literate-mode-hook #'lsp)
   (lsp-enable-which-key-integration t))
@@ -394,7 +384,9 @@
   :hook (lsp-mode . lsp-ui-mode)
   :custom
   (lsp-ui-doc-show-with-mouse t)
-  (lsp-ui-doc-show-with-cursor nil))
+  (lsp-ui-doc-show-with-cursor nil)
+  (setq lsp-ui-doc-position 'bottom)
+  (lsp-ui-doc-show))
 
 (dw/leader-key-def
   "l"  '(:ignore t :which-key "lsp")
@@ -402,13 +394,24 @@
   "lr" 'xref-find-references
   "ln" 'lsp-ui-find-next-reference
   "lp" 'lsp-ui-find-prev-reference
-  "ls" 'counsel-imenu
   "le" 'lsp-ui-flycheck-list
   "lS" 'lsp-ui-sideline-mode
   "lk" 'lsp-ui-doc-show 
+  "ls" 'lsp-treemacs-symbols
+  "lf" 'lsp-ivy-workspace-symbol 
+  "ll" 'lsp-format-buffer
   "lX" 'lsp-execute-code-action)
 
 
+;;; Debugger
+(use-package dap-mode
+  :custom
+  (lsp-enable-dap-auto-configure nil)
+  :config
+  (dap-ui-mode 1)
+  (dap-tooltip-mode 1)
+  (require 'dap-node)
+  (dap-node-setup))
 ;;; Programming Languages
 
 ;;; Rust
@@ -417,6 +420,16 @@
   :hook
   (add-hook 'rustic-hook 'cargo-minor-mode))
 (use-package cargo)
+
+;;; Typescript
+(use-package typescript-mode
+  :mode "\\.ts\\'"
+  :config
+  (setq typescript-indent-level 2))
+
+;;; Javascript
+(use-package js2-mode
+  :mode "\\.jsx?\\'")
 
 ;;; C/C++
 (use-package ccls
